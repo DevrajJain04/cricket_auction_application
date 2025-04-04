@@ -39,8 +39,8 @@ class Player(Base):
     # Relationships
     match_stats = relationship("MatchStats", back_populates="player")
     
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.today)
+    updated_at = Column(DateTime, default=datetime.today, onupdate=datetime.today)
 
 class Match(Base):
     __tablename__ = "matches"
@@ -100,6 +100,65 @@ class MatchStats(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+class Shroff_teams(Base):
+    __tablename__ = "shroff_teams"
+
+    id = Column(Integer, primary_key=True, index=True)
+    team_name = Column(String, unique=True, index=True)
+    team_code = Column(String, unique=True, index=True)
+    team_logo = Column(String)  # URL or path to the logo image
+    team_color = Column(String)  # Hex color code or color name
+    purse = Column(Float, default=10000.0)  # Initial auction purse
+    
+    # Relationships
+    players = relationship("TeamPlayer", back_populates="team")
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+# New classes for auction and team management
+class TeamPlayer(Base):
+    __tablename__ = "team_players"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    team_id = Column(Integer, ForeignKey("shroff_teams.id"))
+    player_id = Column(Integer, ForeignKey("players.id"))
+    
+    # Player role in team
+    is_captain = Column(Boolean, default=False)
+    is_vice_captain = Column(Boolean, default=False)
+    
+    # Auction and team history
+    bought_for = Column(Float, default=0.0)  # Auction price
+    joined_at_match = Column(Integer)  # Match number when player joined
+    left_at_match = Column(Integer, nullable=True)  # Match when player left (if applicable)
+    
+    # Relationships
+    team = relationship("Shroff_teams", back_populates="players")
+    player = relationship("Player")
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class PlayerTransfer(Base):
+    __tablename__ = "player_transfers"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    player_id = Column(Integer, ForeignKey("players.id"))
+    from_team_id = Column(Integer, ForeignKey("shroff_teams.id"), nullable=True)
+    to_team_id = Column(Integer, ForeignKey("shroff_teams.id"))
+    transfer_amount = Column(Float, default=0.0)
+    transfer_type = Column(String)  # "auction", "trade", "replacement"
+    transfer_at_match = Column(Integer)  # Match number when transfer happened
+    reason = Column(String, nullable=True)  # Reason for replacement if applicable
+    
+    # Relationships
+    player = relationship("Player")
+    from_team = relationship("Shroff_teams", foreign_keys=[from_team_id])
+    to_team = relationship("Shroff_teams", foreign_keys=[to_team_id])
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 # Create all tables
 Base.metadata.create_all(bind=engine)
 
@@ -109,4 +168,4 @@ def get_db():
     try:
         yield db
     finally:
-        db.close() 
+        db.close()

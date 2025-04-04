@@ -15,6 +15,7 @@ class FantasyPointsCalculator:
             
             # Bowling points
             'wicket': 25,
+            'stumped_bonus':6,
             'lbw_bowled_bonus': 8,
             '3_wicket_bonus': 4,
             '4_wicket_bonus': 8,
@@ -82,7 +83,6 @@ class FantasyPointsCalculator:
         wickets = int(player.get('wickets', 0))
         overs_bowled = float(player.get('overs_bowled', 0))
         
-        points += wickets * self.point_rules['wicket']
         
         if wickets >= 5:
             points += self.point_rules['5_wicket_bonus']
