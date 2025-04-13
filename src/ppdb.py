@@ -240,10 +240,12 @@ def populate_database(input_result):
             # Create MatchStats record
             calculator = FantasyPointsCalculator()
             fantasy_points = calculator.calculate_total_points(stats)
-            
+            fantasy_points['bowling_points'] += calculator.bowlers_bonus(stats)       #adding the bonus of getting players out on stumping/bowled/lbw etc.
+            fantasy_points['total_points'] += calculator.bowlers_bonus(stats)         #to make sure total is also updated since total is calculated inside the calculator only 
             match_stats = MatchStats(
                 player_id=player.id,
                 match_id=new_match.id,
+                player_name = stats['player_name'],
                 runs=stats['runs'],
                 balls_faced=stats['balls_faced'],
                 fours=stats['fours'],

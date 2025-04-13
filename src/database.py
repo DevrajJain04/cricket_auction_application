@@ -66,6 +66,7 @@ class MatchStats(Base):
     match_id = Column(Integer, ForeignKey("matches.id"))
     
     # Match-specific statistics
+    player_name = Column(String)
     runs = Column(Integer, default=0)
     balls_faced = Column(Integer, default=0)
     fours = Column(Integer, default=0)

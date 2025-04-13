@@ -1,6 +1,8 @@
 import csv
 from datetime import datetime
 
+import sqlalchemy
+
 class FantasyPointsCalculator:
     def __init__(self):
         self.point_rules = {
@@ -26,7 +28,7 @@ class FantasyPointsCalculator:
             'catch': 8,
             '3_catch_bonus': 4,
             'stumping': 12,
-            'run_out_direct': 12,
+            'run_out_direct': 12,           # happens indirectly
             'run_out_indirect': 6,
             
             # Strike rate points
@@ -49,11 +51,21 @@ class FantasyPointsCalculator:
                 (12, float('inf'), -6)
             ]
         }
+        self.bowlers_bonus = {}  # adds "player_name": points to add to this bowlers points
 
     def calculate_batting_points(self, player):
         points = 0
         runs = int(player.get('runs', 0))
         balls_faced = int(player.get('balls_faced', 0))
+        dismissal_type = player.get('dismissal_type', '')
+        dismissal_bowler = player.get('dismissal_bowler', '')
+        player_name = player.get('player_name', '')
+        if (dismissal_type == 'bowled' and dismissal_type == 'lbw'):
+            self.bowlers_bonus[dismissal_bowler] = self.point_rules['lbw_bowled_bonus']
+        elif dismissal_type == 'stumped':
+            self.bowlers_bonus[dismissal_bowler] = self.point_rules['stumped_bonus']
+        elif dismissal_type == 'runout':
+            self.bowlers_bonus[dismissal_bowler] = self.point_rules['run_out_indirect']
         
         points += runs * self.point_rules['run']
         points += int(player.get('fours', 0)) * self.point_rules['boundary_bonus']
@@ -148,15 +160,17 @@ class FantasyPointsCalculator:
             'bowling_points': self.calculate_bowling_points(player),
             'fielding_points': self.calculate_fielding_points(player)
         }
+    def get_bowlers_fielders_bonus(self,player):
+        player_name = player.get('player_name', '')
+        if (player_name in self.bowlers_bonus):
+            points += self.bowlers_bonus[player_name]
 
 def process_input_file(input_file):
     with open(input_file, mode='r', encoding='utf-8') as csvfile:
         return list(csv.DictReader(csvfile))
 
 def save_output_file(players_points, output_file):
-    fieldnames = ['player_name', 'team', 'match_id', 
-                 'total_points', 'batting_points', 
-                 'bowling_points', 'fielding_points']
+    fieldnames = ['player_name', 'team', 'match_id', 'total_points', 'batting_points', 'bowling_points', 'fielding_points']
     
     with open(output_file, mode='w', newline='', encoding='utf-8') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -164,16 +178,10 @@ def save_output_file(players_points, output_file):
         writer.writerows(players_points)
 
 def main():
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_file = f"player_points_summary_{timestamp}.csv"
-    
-    calculator = FantasyPointsCalculator()
-    players = process_input_file("new_test.csv")
-    
-    players_points = [calculator.calculate_total_points(p) for p in players]
-    
-    save_output_file(players_points, output_file)
-    print(f"Points summary saved to {output_file}")
+    # fetch from the circdata.db and recalculate points from the db data only 
+    db = sqlalchemy.connect('circdata.db')
+    cursor = db.cursor()
+
 
 if __name__ == "__main__":
     main()
