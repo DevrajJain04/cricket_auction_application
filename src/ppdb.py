@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 BASE_URL = os.getenv("BASE_URL")
-API_KEY = os.getenv("API_KEY_DJ4499")
+API_KEY = os.getenv("API_KEY_DRAVEN")
 df = pd.read_csv("Match_data.csv")
 df["date"] = pd.to_datetime(df["date"]).dt.date  # Convert to date-only format
 
@@ -54,8 +54,9 @@ def get_completed_matches():
     # today = datetime.now().date()
     return df[df["date"] <= yesterday][["id", "date"]].to_dict('records')
 #10 10 match ke set yaha se load karlo per api key
-def get_first10_matches():
-    return df.head(10)[["id", "date"]].to_dict('records')
+def get_10_matches():
+    # Updated to return a single match at index 10
+    return df[0:10][["id", "date"]].to_dict('records')
 #aaj ka match
 def todays_match(match_id):
     today = datetime.now().date()
@@ -325,7 +326,7 @@ def populate_database(input_result):
 #full pipeline to populate db till date (yet to test)
 def full_populate_till_date():
     try:
-        completed_matches = get_first10_matches()
+        completed_matches = get_10_matches()
         print(f"Found {len(completed_matches)} completed matches to process")
         
         for match in completed_matches:
