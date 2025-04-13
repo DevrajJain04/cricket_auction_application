@@ -10,12 +10,17 @@ import os,json,requests
 from typing import List, Dict, Optional
 from pydantic import BaseModel
 from dotenv import load_dotenv
+from pathlib import Path
 
 
 load_dotenv()
 BASE_URL = os.getenv("BASE_URL")
-API_KEY = os.getenv("API_KEY_DRAVEN")
-df = pd.read_csv("Match_data.csv")
+API_KEY = os.getenv("API_KEY_SSC")
+
+# Get the path to Match_data.csv in the root directory
+project_root = Path(__file__).parent.parent
+match_data_path = project_root / "Match_data.csv"
+df = pd.read_csv(match_data_path)
 df["date"] = pd.to_datetime(df["date"]).dt.date  # Convert to date-only format
 
 class PlayerResponse(BaseModel):
