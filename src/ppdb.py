@@ -53,6 +53,9 @@ def get_completed_matches():
     yesterday = datetime.now().date() - pd.Timedelta(days=9)
     # today = datetime.now().date()
     return df[df["date"] <= yesterday][["id", "date"]].to_dict('records')
+#10 10 match ke set yaha se load karlo per api key
+def get_first10_matches():
+    return df.head(10)[["id", "date"]].to_dict('records')
 #aaj ka match
 def todays_match(match_id):
     today = datetime.now().date()
@@ -112,7 +115,11 @@ def process_match_data(match_data):
             if 'dismissal' in batsman:
                 player_stats[player_id]['dismissals'] += 1
                 player_stats[player_id]['dismissal_type'] = batsman['dismissal']
-                player_stats[player_id]['dismissal_bowler'] = batsman['bowler']['name']
+                # Check if bowler exists before accessing it (for run-outs, etc.)
+                if 'bowler' in batsman and batsman['bowler'] is not None:
+                    player_stats[player_id]['dismissal_bowler'] = batsman['bowler']['name']
+                else:
+                    player_stats[player_id]['dismissal_bowler'] = ''
         
         # Process bowling stats
         for bowler in innings['bowling']:
@@ -240,8 +247,9 @@ def populate_database(input_result):
             # Create MatchStats record
             calculator = FantasyPointsCalculator()
             fantasy_points = calculator.calculate_total_points(stats)
-            fantasy_points['bowling_points'] += calculator.bowlers_bonus(stats)       #adding the bonus of getting players out on stumping/bowled/lbw etc.
-            fantasy_points['total_points'] += calculator.bowlers_bonus(stats)         #to make sure total is also updated since total is calculated inside the calculator only 
+            if stats['player_name'] in calculator.bowlers_bonus:
+                fantasy_points['bowling_points'] += calculator.bowlers_bonus[stats['player_name']]     #adding the bonus of getting players out on stumping/bowled/lbw etc.
+                fantasy_points['total_points'] += calculator.bowlers_bonus[stats['player_name']]       #to make sure total is also updated since total is calculated inside the calculator only 
             match_stats = MatchStats(
                 player_id=player.id,
                 match_id=new_match.id,
@@ -317,7 +325,7 @@ def populate_database(input_result):
 #full pipeline to populate db till date (yet to test)
 def full_populate_till_date():
     try:
-        completed_matches = get_completed_matches()
+        completed_matches = get_first10_matches()
         print(f"Found {len(completed_matches)} completed matches to process")
         
         for match in completed_matches:
@@ -352,514 +360,514 @@ def full_populate_till_date():
         return False
 
 
-app = FastAPI(title="Shroff IPL auction points calculator")
+# app = FastAPI(title="Shroff IPL auction points calculator")
 
-@app.get("/")
-async def root():
-    return {"message":"Made with care by ROYAL CHALLENGERS THALASONS"}
+# @app.get("/")
+# async def root():
+#     return {"message":"Made with care by ROYAL CHALLENGERS THALASONS"}
 
-# Player endpoints
-@app.get("/players", response_model=List[PlayerResponse])
-async def get_all_players(db: Session = Depends(get_db)):
-    try:
-        players = db.query(Player).all()
+# # Player endpoints
+# @app.get("/players", response_model=List[PlayerResponse])
+# async def get_all_players(db: Session = Depends(get_db)):
+#     try:
+#         players = db.query(Player).all()
         
-        # Convert SQLAlchemy model objects to dictionaries
-        player_list = []
-        for player in players:
-            player_list.append({
-                "id": player.id,
-                "player_name": player.player_name,
-                "team": player.team,
-                "matches_played": player.matches_played,
-                "total_runs": player.total_runs,
-                "total_wickets": player.total_wickets,
-                "total_fantasy_points": player.total_fantasy_points
-            })
+#         # Convert SQLAlchemy model objects to dictionaries
+#         player_list = []
+#         for player in players:
+#             player_list.append({
+#                 "id": player.id,
+#                 "player_name": player.player_name,
+#                 "team": player.team,
+#                 "matches_played": player.matches_played,
+#                 "total_runs": player.total_runs,
+#                 "total_wickets": player.total_wickets,
+#                 "total_fantasy_points": player.total_fantasy_points
+#             })
         
-        return player_list
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+#         return player_list
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/player/{player_id}", response_model=dict)
-async def get_player(player_id: int, db: Session = Depends(get_db)):
-    try:
-        player = db.query(Player).filter(Player.id == player_id).first()
-        if not player:
-            raise HTTPException(status_code=404, detail="Player not found")
+# @app.get("/player/{player_id}", response_model=dict)
+# async def get_player(player_id: int, db: Session = Depends(get_db)):
+#     try:
+#         player = db.query(Player).filter(Player.id == player_id).first()
+#         if not player:
+#             raise HTTPException(status_code=404, detail="Player not found")
         
-        # Convert Player object to dictionary for proper serialization
-        player_data = {
-            "id": player.id,
-            "player_name": player.player_name,
-            "team": player.team,
-            "matches_played": player.matches_played,
-            "total_runs": player.total_runs,
-            "total_wickets": player.total_wickets,
-            "total_fantasy_points": player.total_fantasy_points
-            # Add any other fields you need
-        }
+#         # Convert Player object to dictionary for proper serialization
+#         player_data = {
+#             "id": player.id,
+#             "player_name": player.player_name,
+#             "team": player.team,
+#             "matches_played": player.matches_played,
+#             "total_runs": player.total_runs,
+#             "total_wickets": player.total_wickets,
+#             "total_fantasy_points": player.total_fantasy_points
+#             # Add any other fields you need
+#         }
         
-        return player_data
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+#         return player_data
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
     
-    # Get player match stats
-    match_stats = db.query(MatchStats).filter(MatchStats.player_id == player_id).all()
+#     # Get player match stats
+#     match_stats = db.query(MatchStats).filter(MatchStats.player_id == player_id).all()
     
-    # Get player team history
-    team_history = db.query(TeamPlayer).filter(TeamPlayer.player_id == player_id).all()
+#     # Get player team history
+#     team_history = db.query(TeamPlayer).filter(TeamPlayer.player_id == player_id).all()
     
-    return {
-        "player": player,
-        "match_stats": match_stats,
-        "team_history": team_history
-    }
+#     return {
+#         "player": player,
+#         "match_stats": match_stats,
+#         "team_history": team_history
+#     }
 
-@app.get("/players/name/{player_name}", response_model=dict)
-async def get_player_by_name(player_name: str, db: Session = Depends(get_db)):
-    """Get player details by name"""
-    player = db.query(Player).filter(Player.player_name == player_name).first()
-    if not player:
-        raise HTTPException(status_code=404, detail="Player not found")
+# @app.get("/players/name/{player_name}", response_model=dict)
+# async def get_player_by_name(player_name: str, db: Session = Depends(get_db)):
+#     """Get player details by name"""
+#     player = db.query(Player).filter(Player.player_name == player_name).first()
+#     if not player:
+#         raise HTTPException(status_code=404, detail="Player not found")
     
-    # Get player match stats
-    match_stats = db.query(MatchStats).filter(MatchStats.player_id == player.id).all()
+#     # Get player match stats
+#     match_stats = db.query(MatchStats).filter(MatchStats.player_id == player.id).all()
     
-    # Get player team history
-    team_history = db.query(TeamPlayer).filter(TeamPlayer.player_id == player.id).all()
+#     # Get player team history
+#     team_history = db.query(TeamPlayer).filter(TeamPlayer.player_id == player.id).all()
     
-    return {
-        "player": player,
-        "match_stats": match_stats,
-        "team_history": team_history
-    }
+#     return {
+#         "player": player,
+#         "match_stats": match_stats,
+#         "team_history": team_history
+#     }
 
-# Team endpoints
-@app.get("/teams", response_model=list)
-async def get_all_teams(db: Session = Depends(get_db)):
-    """Get all fantasy teams"""
-    teams = db.query(Shroff_teams).all()
-    return teams
+# # Team endpoints
+# @app.get("/teams", response_model=list)
+# async def get_all_teams(db: Session = Depends(get_db)):
+#     """Get all fantasy teams"""
+#     teams = db.query(Shroff_teams).all()
+#     return teams
 
-@app.get("/team/{team_id}", response_model=TeamResponse)
-async def get_team(team_id: int, db: Session = Depends(get_db)):
-    try:
-        team = db.query(Shroff_teams).filter(Shroff_teams.id == team_id).first()
-        if not team:
-            raise HTTPException(status_code=404, detail="Team not found")
-        return team
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# @app.get("/team/{team_id}", response_model=TeamResponse)
+# async def get_team(team_id: int, db: Session = Depends(get_db)):
+#     try:
+#         team = db.query(Shroff_teams).filter(Shroff_teams.id == team_id).first()
+#         if not team:
+#             raise HTTPException(status_code=404, detail="Team not found")
+#         return team
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
     
-    # Get current team players
-    current_players = db.query(TeamPlayer).filter(
-        TeamPlayer.team_id == team_id,
-        TeamPlayer.left_at_match == None
-    ).all()
+#     # Get current team players
+#     current_players = db.query(TeamPlayer).filter(
+#         TeamPlayer.team_id == team_id,
+#         TeamPlayer.left_at_match == None
+#     ).all()
     
-    # Get team transfer history
-    transfers = db.query(PlayerTransfer).filter(
-        (PlayerTransfer.from_team_id == team_id) | (PlayerTransfer.to_team_id == team_id)
-    ).order_by(PlayerTransfer.transfer_at_match).all()
+#     # Get team transfer history
+#     transfers = db.query(PlayerTransfer).filter(
+#         (PlayerTransfer.from_team_id == team_id) | (PlayerTransfer.to_team_id == team_id)
+#     ).order_by(PlayerTransfer.transfer_at_match).all()
     
-    return {
-        "team": team,
-        "current_players": current_players,
-        "transfers": transfers
-    }
+#     return {
+#         "team": team,
+#         "current_players": current_players,
+#         "transfers": transfers
+#     }
 
-@app.get("/teams/code/{team_code}", response_model=dict)
-async def get_team_by_code(team_code: str, db: Session = Depends(get_db)):
-    """Get team details by team code"""
-    team = db.query(Shroff_teams).filter(Shroff_teams.team_code == team_code).first()
-    if not team:
-        raise HTTPException(status_code=404, detail="Team not found")
+# @app.get("/teams/code/{team_code}", response_model=dict)
+# async def get_team_by_code(team_code: str, db: Session = Depends(get_db)):
+#     """Get team details by team code"""
+#     team = db.query(Shroff_teams).filter(Shroff_teams.team_code == team_code).first()
+#     if not team:
+#         raise HTTPException(status_code=404, detail="Team not found")
     
-    # Get current team players
-    current_players = db.query(TeamPlayer).filter(
-        TeamPlayer.team_id == team.id,
-        TeamPlayer.left_at_match == None
-    ).all()
+#     # Get current team players
+#     current_players = db.query(TeamPlayer).filter(
+#         TeamPlayer.team_id == team.id,
+#         TeamPlayer.left_at_match == None
+#     ).all()
     
-    # Get team transfer history
-    transfers = db.query(PlayerTransfer).filter(
-        (PlayerTransfer.from_team_id == team.id) | (PlayerTransfer.to_team_id == team.id)
-    ).order_by(PlayerTransfer.transfer_at_match).all()
+#     # Get team transfer history
+#     transfers = db.query(PlayerTransfer).filter(
+#         (PlayerTransfer.from_team_id == team.id) | (PlayerTransfer.to_team_id == team.id)
+#     ).order_by(PlayerTransfer.transfer_at_match).all()
     
-    return {
-        "team": team,
-        "current_players": current_players,
-        "transfers": transfers
-    }
+#     return {
+#         "team": team,
+#         "current_players": current_players,
+#         "transfers": transfers
+#     }
 
-# Fantasy points endpoints
-@app.get("/fantasy/match/{match_id}", response_model=dict)
-async def get_fantasy_points_by_match(match_id: int, db: Session = Depends(get_db)):
-    """Get fantasy points for all teams for a specific match"""
-    match = db.query(Match).filter(Match.id == match_id).first()
-    if not match:
-        raise HTTPException(status_code=404, detail="Match not found")
+# # Fantasy points endpoints
+# @app.get("/fantasy/match/{match_id}", response_model=dict)
+# async def get_fantasy_points_by_match(match_id: int, db: Session = Depends(get_db)):
+#     """Get fantasy points for all teams for a specific match"""
+#     match = db.query(Match).filter(Match.id == match_id).first()
+#     if not match:
+#         raise HTTPException(status_code=404, detail="Match not found")
     
-    teams = db.query(Shroff_teams).all()
-    team_points = []
+#     teams = db.query(Shroff_teams).all()
+#     team_points = []
     
-    for team in teams:
-        # Get team players for this match
-        team_players = db.query(TeamPlayer).filter(
-            TeamPlayer.team_id == team.id,
-            TeamPlayer.joined_at_match <= match_id,
-            (TeamPlayer.left_at_match == None) | (TeamPlayer.left_at_match > match_id)
-        ).all()
+#     for team in teams:
+#         # Get team players for this match
+#         team_players = db.query(TeamPlayer).filter(
+#             TeamPlayer.team_id == team.id,
+#             TeamPlayer.joined_at_match <= match_id,
+#             (TeamPlayer.left_at_match == None) | (TeamPlayer.left_at_match > match_id)
+#         ).all()
         
-        total_points = 0
-        player_points = []
+#         total_points = 0
+#         player_points = []
         
-        for tp in team_players:
-            # Get player match stats
-            match_stat = db.query(MatchStats).filter(
-                MatchStats.player_id == tp.player_id,
-                MatchStats.match_id == match_id
-            ).first()
+#         for tp in team_players:
+#             # Get player match stats
+#             match_stat = db.query(MatchStats).filter(
+#                 MatchStats.player_id == tp.player_id,
+#                 MatchStats.match_id == match_id
+#             ).first()
             
-            if match_stat:
-                # Apply captain/vice-captain multiplier
-                multiplier = 2.0 if tp.is_captain else (1.5 if tp.is_vice_captain else 1.0)
-                points = match_stat.total_points * multiplier
+#             if match_stat:
+#                 # Apply captain/vice-captain multiplier
+#                 multiplier = 2.0 if tp.is_captain else (1.5 if tp.is_vice_captain else 1.0)
+#                 points = match_stat.total_points * multiplier
                 
-                player_points.append({
-                    "player_id": tp.player_id,
-                    "player_name": tp.player.player_name,
-                    "is_captain": tp.is_captain,
-                    "is_vice_captain": tp.is_vice_captain,
-                    "base_points": match_stat.total_points,
-                    "multiplier": multiplier,
-                    "total_points": points
-                })
+#                 player_points.append({
+#                     "player_id": tp.player_id,
+#                     "player_name": tp.player.player_name,
+#                     "is_captain": tp.is_captain,
+#                     "is_vice_captain": tp.is_vice_captain,
+#                     "base_points": match_stat.total_points,
+#                     "multiplier": multiplier,
+#                     "total_points": points
+#                 })
                 
-                total_points += points
+#                 total_points += points
         
-        team_points.append({
-            "team_id": team.id,
-            "team_name": team.team_name,
-            "team_code": team.team_code,
-            "total_points": total_points,
-            "players": player_points
-        })
+#         team_points.append({
+#             "team_id": team.id,
+#             "team_name": team.team_name,
+#             "team_code": team.team_code,
+#             "total_points": total_points,
+#             "players": player_points
+#         })
     
-    return {
-        "match": match,
-        "team_points": team_points
-    }
+#     return {
+#         "match": match,
+#         "team_points": team_points
+#     }
 
-@app.get("/fantasy/leaderboard", response_model=list)
-async def get_fantasy_leaderboard(db: Session = Depends(get_db)):
-    """Get overall fantasy points leaderboard for all teams"""
-    teams = db.query(Shroff_teams).all()
-    leaderboard = []
+# @app.get("/fantasy/leaderboard", response_model=list)
+# async def get_fantasy_leaderboard(db: Session = Depends(get_db)):
+#     """Get overall fantasy points leaderboard for all teams"""
+#     teams = db.query(Shroff_teams).all()
+#     leaderboard = []
     
-    for team in teams:
-        # Calculate total points across all matches
-        total_points = 0
-        matches_played = 0
+#     for team in teams:
+#         # Calculate total points across all matches
+#         total_points = 0
+#         matches_played = 0
         
-        # Get all matches
-        matches = db.query(Match).order_by(Match.match_date).all()
-        match_points = []
+#         # Get all matches
+#         matches = db.query(Match).order_by(Match.match_date).all()
+#         match_points = []
         
-        for match in matches:
-            # Get team players for this match
-            team_players = db.query(TeamPlayer).filter(
-                TeamPlayer.team_id == team.id,
-                TeamPlayer.joined_at_match <= match.id,
-                (TeamPlayer.left_at_match == None) | (TeamPlayer.left_at_match > match.id)
-            ).all()
+#         for match in matches:
+#             # Get team players for this match
+#             team_players = db.query(TeamPlayer).filter(
+#                 TeamPlayer.team_id == team.id,
+#                 TeamPlayer.joined_at_match <= match.id,
+#                 (TeamPlayer.left_at_match == None) | (TeamPlayer.left_at_match > match.id)
+#             ).all()
             
-            match_total = 0
+#             match_total = 0
             
-            for tp in team_players:
-                # Get player match stats
-                match_stat = db.query(MatchStats).filter(
-                    MatchStats.player_id == tp.player_id,
-                    MatchStats.match_id == match.id
-                ).first()
+#             for tp in team_players:
+#                 # Get player match stats
+#                 match_stat = db.query(MatchStats).filter(
+#                     MatchStats.player_id == tp.player_id,
+#                     MatchStats.match_id == match.id
+#                 ).first()
                 
-                if match_stat:
-                    # Apply captain/vice-captain multiplier
-                    multiplier = 2.0 if tp.is_captain else (1.5 if tp.is_vice_captain else 1.0)
-                    match_total += match_stat.total_points * multiplier
+#                 if match_stat:
+#                     # Apply captain/vice-captain multiplier
+#                     multiplier = 2.0 if tp.is_captain else (1.5 if tp.is_vice_captain else 1.0)
+#                     match_total += match_stat.total_points * multiplier
             
-            if match_total > 0:
-                matches_played += 1
-                total_points += match_total
-                match_points.append({
-                    "match_id": match.id,
-                    "match_name": match.match_name,
-                    "points": match_total
-                })
+#             if match_total > 0:
+#                 matches_played += 1
+#                 total_points += match_total
+#                 match_points.append({
+#                     "match_id": match.id,
+#                     "match_name": match.match_name,
+#                     "points": match_total
+#                 })
         
-        leaderboard.append({
-            "team_id": team.id,
-            "team_name": team.team_name,
-            "team_code": team.team_code,
-            "total_points": total_points,
-            "matches_played": matches_played,
-            "average_points": total_points / matches_played if matches_played > 0 else 0,
-            "match_points": match_points
-        })
+#         leaderboard.append({
+#             "team_id": team.id,
+#             "team_name": team.team_name,
+#             "team_code": team.team_code,
+#             "total_points": total_points,
+#             "matches_played": matches_played,
+#             "average_points": total_points / matches_played if matches_played > 0 else 0,
+#             "match_points": match_points
+#         })
     
-    # Sort leaderboard by total points descending
-    leaderboard.sort(key=lambda x: x["total_points"], reverse=True)
-    return leaderboard
+#     # Sort leaderboard by total points descending
+#     leaderboard.sort(key=lambda x: x["total_points"], reverse=True)
+#     return leaderboard
 
-# Team management endpoints
-@app.post("/teams/{team_id}/add_player", response_model=dict)
-async def add_player_to_team(
-    team_id: int,
-    player_id: int,
-    is_captain: bool = False,
-    is_vice_captain: bool = False,
-    price: float = 0,
-    match_id: int = None,
-    db: Session = Depends(get_db)
-):
-    """Add a player to a team"""
-    try:
-        # Validate team exists
-        team = db.query(Shroff_teams).filter(Shroff_teams.id == team_id).first()
-        if not team:
-            raise HTTPException(status_code=404, detail="Team not found")
+# # Team management endpoints
+# @app.post("/teams/{team_id}/add_player", response_model=dict)
+# async def add_player_to_team(
+#     team_id: int,
+#     player_id: int,
+#     is_captain: bool = False,
+#     is_vice_captain: bool = False,
+#     price: float = 0,
+#     match_id: int = None,
+#     db: Session = Depends(get_db)
+# ):
+#     """Add a player to a team"""
+#     try:
+#         # Validate team exists
+#         team = db.query(Shroff_teams).filter(Shroff_teams.id == team_id).first()
+#         if not team:
+#             raise HTTPException(status_code=404, detail="Team not found")
         
-        # Validate player exists
-        player = db.query(Player).filter(Player.id == player_id).first()
-        if not player:
-            raise HTTPException(status_code=404, detail="Player not found")
+#         # Validate player exists
+#         player = db.query(Player).filter(Player.id == player_id).first()
+#         if not player:
+#             raise HTTPException(status_code=404, detail="Player not found")
         
-        # Get current match if not specified
-        if not match_id:
-            latest_match = db.query(Match).order_by(Match.match_date.desc()).first()
-            if not latest_match:
-                raise HTTPException(status_code=400, detail="No matches found in database")
-            match_id = latest_match.id
+#         # Get current match if not specified
+#         if not match_id:
+#             latest_match = db.query(Match).order_by(Match.match_date.desc()).first()
+#             if not latest_match:
+#                 raise HTTPException(status_code=400, detail="No matches found in database")
+#             match_id = latest_match.id
         
-        # Check if player is already in team
-        existing_player = db.query(TeamPlayer).filter(
-            TeamPlayer.team_id == team_id,
-            TeamPlayer.player_id == player_id,
-            TeamPlayer.left_at_match == None
-        ).first()
+#         # Check if player is already in team
+#         existing_player = db.query(TeamPlayer).filter(
+#             TeamPlayer.team_id == team_id,
+#             TeamPlayer.player_id == player_id,
+#             TeamPlayer.left_at_match == None
+#         ).first()
         
-        if existing_player:
-            raise HTTPException(status_code=400, detail="Player already in team")
+#         if existing_player:
+#             raise HTTPException(status_code=400, detail="Player already in team")
         
-        # Check purse balance
-        if price > team.purse_remaining:
-            raise HTTPException(status_code=400, detail="Insufficient purse balance")
+#         # Check purse balance
+#         if price > team.purse_remaining:
+#             raise HTTPException(status_code=400, detail="Insufficient purse balance")
         
-        # Add player to team
-        new_team_player = TeamPlayer(
-            team_id=team_id,
-            player_id=player_id,
-            joined_at_match=match_id,
-            is_captain=is_captain,
-            is_vice_captain=is_vice_captain,
-            price=price
-        )
+#         # Add player to team
+#         new_team_player = TeamPlayer(
+#             team_id=team_id,
+#             player_id=player_id,
+#             joined_at_match=match_id,
+#             is_captain=is_captain,
+#             is_vice_captain=is_vice_captain,
+#             price=price
+#         )
         
-        # Update team purse
-        team.purse_remaining -= price
+#         # Update team purse
+#         team.purse_remaining -= price
         
-        db.add(new_team_player)
-        db.commit()
+#         db.add(new_team_player)
+#         db.commit()
         
-        return {
-            "message": "Player added to team successfully",
-            "player_id": player_id,
-            "team_id": team_id,
-            "purse_remaining": team.purse_remaining
-        }
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+#         return {
+#             "message": "Player added to team successfully",
+#             "player_id": player_id,
+#             "team_id": team_id,
+#             "purse_remaining": team.purse_remaining
+#         }
+#     except Exception as e:
+#         db.rollback()
+#         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/teams/{team_id}/remove_player", response_model=dict)
-async def remove_player_from_team(
-    team_id: int,
-    player_id: int,
-    match_id: int = None,
-    db: Session = Depends(get_db)
-):
-    """Remove a player from a team"""
-    try:
-        # Validate team exists
-        team = db.query(Shroff_teams).filter(Shroff_teams.id == team_id).first()
-        if not team:
-            raise HTTPException(status_code=404, detail="Team not found")
+# @app.post("/teams/{team_id}/remove_player", response_model=dict)
+# async def remove_player_from_team(
+#     team_id: int,
+#     player_id: int,
+#     match_id: int = None,
+#     db: Session = Depends(get_db)
+# ):
+#     """Remove a player from a team"""
+#     try:
+#         # Validate team exists
+#         team = db.query(Shroff_teams).filter(Shroff_teams.id == team_id).first()
+#         if not team:
+#             raise HTTPException(status_code=404, detail="Team not found")
         
-        # Get current match if not specified
-        if not match_id:
-            latest_match = db.query(Match).order_by(Match.match_date.desc()).first()
-            if not latest_match:
-                raise HTTPException(status_code=400, detail="No matches found in database")
-            match_id = latest_match.id
+#         # Get current match if not specified
+#         if not match_id:
+#             latest_match = db.query(Match).order_by(Match.match_date.desc()).first()
+#             if not latest_match:
+#                 raise HTTPException(status_code=400, detail="No matches found in database")
+#             match_id = latest_match.id
         
-        # Find active team player record
-        team_player = db.query(TeamPlayer).filter(
-            TeamPlayer.team_id == team_id,
-            TeamPlayer.player_id == player_id,
-            TeamPlayer.left_at_match == None
-        ).first()
+#         # Find active team player record
+#         team_player = db.query(TeamPlayer).filter(
+#             TeamPlayer.team_id == team_id,
+#             TeamPlayer.player_id == player_id,
+#             TeamPlayer.left_at_match == None
+#         ).first()
         
-        if not team_player:
-            raise HTTPException(status_code=404, detail="Player not found in team")
+#         if not team_player:
+#             raise HTTPException(status_code=404, detail="Player not found in team")
         
-        # Mark player as left
-        team_player.left_at_match = match_id
+#         # Mark player as left
+#         team_player.left_at_match = match_id
         
-        # Refund 50% of purchase price to purse
-        refund_amount = team_player.price * 0.5
-        team.purse_remaining += refund_amount
+#         # Refund 50% of purchase price to purse
+#         refund_amount = team_player.price * 0.5
+#         team.purse_remaining += refund_amount
         
-        db.commit()
+#         db.commit()
         
-        return {
-            "message": "Player removed from team successfully",
-            "player_id": player_id,
-            "team_id": team_id,
-            "refund_amount": refund_amount,
-            "purse_remaining": team.purse_remaining
-        }
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+#         return {
+#             "message": "Player removed from team successfully",
+#             "player_id": player_id,
+#             "team_id": team_id,
+#             "refund_amount": refund_amount,
+#             "purse_remaining": team.purse_remaining
+#         }
+#     except Exception as e:
+#         db.rollback()
+#         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/teams/{team_id}/update_captain", response_model=dict)
-async def update_captain(
-    team_id: int,
-    player_id: int,
-    is_captain: bool,
-    is_vice_captain: bool = False,
-    db: Session = Depends(get_db)
-):
-    """Update captain/vice-captain status for a player"""
-    try:
-        # Validate team exists
-        team = db.query(Shroff_teams).filter(Shroff_teams.id == team_id).first()
-        if not team:
-            raise HTTPException(status_code=404, detail="Team not found")
+# @app.post("/teams/{team_id}/update_captain", response_model=dict)
+# async def update_captain(
+#     team_id: int,
+#     player_id: int,
+#     is_captain: bool,
+#     is_vice_captain: bool = False,
+#     db: Session = Depends(get_db)
+# ):
+#     """Update captain/vice-captain status for a player"""
+#     try:
+#         # Validate team exists
+#         team = db.query(Shroff_teams).filter(Shroff_teams.id == team_id).first()
+#         if not team:
+#             raise HTTPException(status_code=404, detail="Team not found")
         
-        # Find active team player record
-        team_player = db.query(TeamPlayer).filter(
-            TeamPlayer.team_id == team_id,
-            TeamPlayer.player_id == player_id,
-            TeamPlayer.left_at_match == None
-        ).first()
+#         # Find active team player record
+#         team_player = db.query(TeamPlayer).filter(
+#             TeamPlayer.team_id == team_id,
+#             TeamPlayer.player_id == player_id,
+#             TeamPlayer.left_at_match == None
+#         ).first()
         
-        if not team_player:
-            raise HTTPException(status_code=404, detail="Player not found in team")
+#         if not team_player:
+#             raise HTTPException(status_code=404, detail="Player not found in team")
         
-        # Update captain status
-        team_player.is_captain = is_captain
-        team_player.is_vice_captain = is_vice_captain
+#         # Update captain status
+#         team_player.is_captain = is_captain
+#         team_player.is_vice_captain = is_vice_captain
         
-        db.commit()
+#         db.commit()
         
-        return {
-            "message": "Captain status updated successfully",
-            "player_id": player_id,
-            "is_captain": is_captain,
-            "is_vice_captain": is_vice_captain
-        }
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+#         return {
+#             "message": "Captain status updated successfully",
+#             "player_id": player_id,
+#             "is_captain": is_captain,
+#             "is_vice_captain": is_vice_captain
+#         }
+#     except Exception as e:
+#         db.rollback()
+#         raise HTTPException(status_code=500, detail=str(e))
 
-# Trade endpoints
-@app.post("/trades/create", response_model=dict)
-async def create_trade(
-    from_team_id: int,
-    to_team_id: int,
-    player_id: int,
-    price: float = 0,
-    match_id: int = None,
-    db: Session = Depends(get_db)
-):
-    """Trade a player between teams"""
-    try:
-        # Validate teams exist
-        from_team = db.query(Shroff_teams).filter(Shroff_teams.id == from_team_id).first()
-        to_team = db.query(Shroff_teams).filter(Shroff_teams.id == to_team_id).first()
-        if not from_team or not to_team:
-            raise HTTPException(status_code=404, detail="Team not found")
+# # Trade endpoints
+# @app.post("/trades/create", response_model=dict)
+# async def create_trade(
+#     from_team_id: int,
+#     to_team_id: int,
+#     player_id: int,
+#     price: float = 0,
+#     match_id: int = None,
+#     db: Session = Depends(get_db)
+# ):
+#     """Trade a player between teams"""
+#     try:
+#         # Validate teams exist
+#         from_team = db.query(Shroff_teams).filter(Shroff_teams.id == from_team_id).first()
+#         to_team = db.query(Shroff_teams).filter(Shroff_teams.id == to_team_id).first()
+#         if not from_team or not to_team:
+#             raise HTTPException(status_code=404, detail="Team not found")
         
-        # Validate player exists
-        player = db.query(Player).filter(Player.id == player_id).first()
-        if not player:
-            raise HTTPException(status_code=404, detail="Player not found")
+#         # Validate player exists
+#         player = db.query(Player).filter(Player.id == player_id).first()
+#         if not player:
+#             raise HTTPException(status_code=404, detail="Player not found")
         
-        # Get current match if not specified
-        if not match_id:
-            latest_match = db.query(Match).order_by(Match.match_date.desc()).first()
-            if not latest_match:
-                raise HTTPException(status_code=400, detail="No matches found in database")
-            match_id = latest_match.id
+#         # Get current match if not specified
+#         if not match_id:
+#             latest_match = db.query(Match).order_by(Match.match_date.desc()).first()
+#             if not latest_match:
+#                 raise HTTPException(status_code=400, detail="No matches found in database")
+#             match_id = latest_match.id
         
-        # Check if player is in from_team
-        from_team_player = db.query(TeamPlayer).filter(
-            TeamPlayer.team_id == from_team_id,
-            TeamPlayer.player_id == player_id,
-            TeamPlayer.left_at_match == None
-        ).first()
+#         # Check if player is in from_team
+#         from_team_player = db.query(TeamPlayer).filter(
+#             TeamPlayer.team_id == from_team_id,
+#             TeamPlayer.player_id == player_id,
+#             TeamPlayer.left_at_match == None
+#         ).first()
         
-        if not from_team_player:
-            raise HTTPException(status_code=400, detail="Player not in source team")
+#         if not from_team_player:
+#             raise HTTPException(status_code=400, detail="Player not in source team")
         
-        # Check if to_team has enough purse
-        if price > to_team.purse_remaining:
-            raise HTTPException(status_code=400, detail="Destination team has insufficient purse")
+#         # Check if to_team has enough purse
+#         if price > to_team.purse_remaining:
+#             raise HTTPException(status_code=400, detail="Destination team has insufficient purse")
         
-        # Create trade record
-        trade = PlayerTransfer(
-            from_team_id=from_team_id,
-            to_team_id=to_team_id,
-            player_id=player_id,
-            transfer_at_match=match_id,
-            price=price
-        )
+#         # Create trade record
+#         trade = PlayerTransfer(
+#             from_team_id=from_team_id,
+#             to_team_id=to_team_id,
+#             player_id=player_id,
+#             transfer_at_match=match_id,
+#             price=price
+#         )
         
-        # Remove player from from_team
-        from_team_player.left_at_match = match_id
+#         # Remove player from from_team
+#         from_team_player.left_at_match = match_id
         
-        # Add player to to_team
-        new_team_player = TeamPlayer(
-            team_id=to_team_id,
-            player_id=player_id,
-            joined_at_match=match_id,
-            is_captain=False,
-            is_vice_captain=False,
-            price=price
-        )
+#         # Add player to to_team
+#         new_team_player = TeamPlayer(
+#             team_id=to_team_id,
+#             player_id=player_id,
+#             joined_at_match=match_id,
+#             is_captain=False,
+#             is_vice_captain=False,
+#             price=price
+#         )
         
-        # Update purses
-        from_team.purse_remaining += price
-        to_team.purse_remaining -= price
+#         # Update purses
+#         from_team.purse_remaining += price
+#         to_team.purse_remaining -= price
         
-        db.add(trade)
-        db.add(new_team_player)
-        db.commit()
+#         db.add(trade)
+#         db.add(new_team_player)
+#         db.commit()
         
-        return {
-            "message": "Trade completed successfully",
-            "player_id": player_id,
-            "from_team_id": from_team_id,
-            "to_team_id": to_team_id,
-            "price": price,
-            "from_team_purse": from_team.purse_remaining,
-            "to_team_purse": to_team.purse_remaining
-        }
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+#         return {
+#             "message": "Trade completed successfully",
+#             "player_id": player_id,
+#             "from_team_id": from_team_id,
+#             "to_team_id": to_team_id,
+#             "price": price,
+#             "from_team_purse": from_team.purse_remaining,
+#             "to_team_purse": to_team.purse_remaining
+#         }
+#     except Exception as e:
+#         db.rollback()
+#         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
@@ -871,6 +879,6 @@ if __name__ == "__main__":
         print(f"Database population failed: {str(e)}")
         print("Continuing with API server startup...")
     
-    # Start the API server
-    print("Starting FastAPI server...")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+#     # Start the API server
+#     print("Starting FastAPI server...")
+#     uvicorn.run(app, host="0.0.0.0", port=8000)
