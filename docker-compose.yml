@@ -11,23 +11,3 @@ services:
     env_file:
       - .env
     restart: unless-stopped
-    # If you want to use PostgreSQL instead of SQLite, uncomment the depends_on section
-    # depends_on:
-    #   - db
-
-  # Uncomment this section if you want to use PostgreSQL instead of SQLite
-  # db:
-  #   image: postgres:16
-  #   volumes:
-  #     - postgres_data:/var/lib/postgresql/data
-  #   environment:
-  #     - POSTGRES_PASSWORD=password
-  #     - POSTGRES_USER=cricdata
-  #     - POSTGRES_DB=cricdata
-  #   ports:
-  #     - "5432:5432"
-  #   restart: unless-stopped
-
-# Uncomment if using PostgreSQL
-# volumes:
-#   postgres_data:
