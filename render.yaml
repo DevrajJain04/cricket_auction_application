@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: cricdata-api
+    env: docker
+    plan: free
+    healthCheckPath: /docs
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite:///./cricdata.db
+      - key: API_HOST
+        value: 0.0.0.0
+      - key: API_PORT
+        value: 8000
+      - key: ENVIRONMENT
+        value: production
+      - key: API_KEY
+        sync: false # This will prompt you to enter the value during deployment

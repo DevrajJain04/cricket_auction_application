@@ -104,6 +104,7 @@ class FantasyPointsCalculator:
             points += self.point_rules['3_wicket_bonus']
         
         points += int(player.get('maidens', 0)) * self.point_rules['maiden_over']
+        points += wickets * self.point_rules['wicket']
         
         if overs_bowled >= 2:
             economy = float(player.get('economy', 0))
