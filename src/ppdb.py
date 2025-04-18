@@ -1,6 +1,6 @@
 import json ,time
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import defaultdict
 from fastapi import FastAPI , Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -54,10 +54,18 @@ def fetch_match_data(match_id: str) -> dict:
         print(f"Error fetching match data for {match_id}: {str(e)}")
         return {"status": "error", "message": str(e)}
 #yesterday tak
-# def get_completed_matches():
-#     yesterday = datetime.now().date() - pd.Timedelta(days=9)
-#     # today = datetime.now().date()
-#     return df[df["date"] <= yesterday][["id", "date"]].to_dict('records')
+def get_completed_matches():
+    yesterday = datetime.now().date() - timedelta(days=1)
+    # today = datetime.now().date()
+    return df[df["date"] <= yesterday][["id", "date"]].to_dict('records')
+
+def get_yesterdays_match():
+    """Get match data for yesterday's date from Match_data.csv"""
+    yesterday = datetime.now().date() - timedelta(days=1)
+    matches = df[df["date"] == yesterday][["id", "date"]].to_dict('records')
+    print(f"Found {len(matches)} matches for {yesterday}")
+    return matches
+
 #10 10 match ke set yaha se load karlo per api key
 def get_10_matches():
     # Updated to return a single match at index 10
