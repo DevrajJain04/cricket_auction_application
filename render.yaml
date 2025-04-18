@@ -19,7 +19,7 @@ services:
   - type: cron
     name: cricdata-daily-update
     env: docker
-    schedule: "0 1 * * *"  # Run at 1:00 AM every day (UTC)
+    schedule: "0 1 * * *" # Run at 1:00 AM every day (UTC)
     dockerCommand: python -m src.daily_update
     envVars:
       - key: DATABASE_URL
