@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import func, case, and_ # Import func, case, and_
 from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
-
+from datetime import datetime
 # Add src directory to Python path if needed
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
 
@@ -760,7 +760,7 @@ async def trigger_daily_update(api_key: str = Body(..., embed=True)):
     This endpoint can be called by Render's cron service to run the daily update at 1 AM.
     """
     # Verify API key
-    expected_key = os.getenv("API_KEY")
+    expected_key = os.getenv("API_KEY_DRAVEN")
     if not expected_key or api_key != expected_key:
         raise HTTPException(status_code=401, detail="Invalid API key")
     
