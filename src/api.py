@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import func, case, and_ # Import func, case, and_
 from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
-
+from datetime import datetime
 # Add src directory to Python path if needed
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
 
@@ -749,6 +749,39 @@ async def get_team_total_points(team_id: int, db: Session = Depends(get_db)):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+
+
+@app.post("/admin/run-daily-update/", response_model=ActionResponse)
+async def trigger_daily_update(api_key: str = Body(..., embed=True)):
+    """
+    Trigger the daily update process manually or via a scheduled task.
+    Protected by API key to prevent unauthorized access.
+    
+    This endpoint can be called by Render's cron service to run the daily update at 1 AM.
+    """
+    # Verify API key
+    expected_key = os.getenv("API_KEY_DRAVEN")
+    if not expected_key or api_key != expected_key:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    
+    try:
+        # Import and run the daily update
+        from daily_update import run_daily_update
+        processed_count = run_daily_update()
+        
+        return ActionResponse(
+            success=True,
+            message=f"Daily update completed successfully. Processed {processed_count} matches.",
+            details={
+                "matches_processed": processed_count,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        )
+    except Exception as e:
+        print(f"Error running daily update: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error during daily update: {str(e)}")
 
 
 # --- Main Execution Block ---
