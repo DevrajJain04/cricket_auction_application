@@ -1,0 +1,71 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Unit test / coverage results
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# Database
+*.sqlite3
+*.db
+*.dba
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS related
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.*
+
+# Logs
+*.log
+logs/
+
+# Frontend (if accidentally run from root or redundant)
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# Project specific
+cricdata.db
+cricdata_old.db
+match_data.csv
+
+
+#Scripts
+scripts/
+
+#legacy ipynb
+.ipynb_checkpoints/
+

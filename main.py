@@ -15,8 +15,8 @@ sys.path.insert(0, str(src_path))
 from dotenv import load_dotenv
 load_dotenv()
 
-# Import the FastAPI application from api.py
-from src.api import app
+# Import the FastAPI application from app.py (modular routers)
+from src.app import app
 
 # This code is used when running with Gunicorn
 if __name__ == "__main__":

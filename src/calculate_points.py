@@ -60,7 +60,7 @@ class FantasyPointsCalculator:
         dismissal_type = player.get('dismissal_type', '')
         dismissal_bowler = player.get('dismissal_bowler', '')
         player_name = player.get('player_name', '')
-        if (dismissal_type == 'bowled' and dismissal_type == 'lbw'):
+        if (dismissal_type == 'bowled' or dismissal_type == 'lbw'):
             self.bowlers_bonus[dismissal_bowler] = self.point_rules['lbw_bowled_bonus']
         elif dismissal_type == 'stumped':
             self.bowlers_bonus[dismissal_bowler] = self.point_rules['stumped_bonus']
@@ -161,10 +161,12 @@ class FantasyPointsCalculator:
             'bowling_points': self.calculate_bowling_points(player),
             'fielding_points': self.calculate_fielding_points(player)
         }
-    def get_bowlers_fielders_bonus(self,player):
+    def get_bowlers_fielders_bonus(self, player):
+        """Get bonus points for bowler/fielder from dismissal records."""
         player_name = player.get('player_name', '')
-        if (player_name in self.bowlers_bonus):
-            points += self.bowlers_bonus[player_name]
+        if player_name in self.bowlers_bonus:
+            return self.bowlers_bonus[player_name]
+        return 0
 
 def process_input_file(input_file):
     with open(input_file, mode='r', encoding='utf-8') as csvfile:
